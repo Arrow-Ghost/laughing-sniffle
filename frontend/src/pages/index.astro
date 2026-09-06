@@ -3,30 +3,38 @@ import Base from '@/layouts/Base.astro';
 
 const pillars = [
   {
-    title: 'Descriptive, not accusatory',
-    body: 'No risk score. No “review” verdict. No guess about whether an answer was AI-assisted — that can’t be done reliably from speech and ShadowADJ doesn’t try.',
+    title: 'Protecting Fair Competition',
+    body: 'Protects honest debaters who spend months preparing for tournaments by surfacing non-disruptive alerts when multiple speech & linguistic signals indicate unusual AI assistance patterns.',
   },
   {
-    title: 'Consent-first',
-    body: 'A session can’t start until the person being recorded says yes. They see the exact same dashboard as everyone else in the room.',
+    title: 'Adjudicator-Centric HUD',
+    body: 'Adjudicators remain focused on flowing arguments, assessing clashes, and preparing oral adjudications. ShadowADJ acts as a quiet background assistant.',
   },
   {
-    title: 'Nothing kept',
-    body: 'Audio stays in memory and is discarded when the session ends. Summaries live in your browser’s local storage — no account, no server-side profile.',
+    title: 'Human Stays in Control',
+    body: 'Never outputs an automatic cheating verdict or alters debate scores. Signals are timestamped evidence markers for human consideration.',
   },
+];
+
+const pipelineSteps = [
+  { step: '01', title: 'Live Debate Audio', desc: 'Real-time 16kHz PCM audio stream capture via AudioWorklet & WebSocket transport.' },
+  { step: '02', title: 'VAD & Speaker Diarization', desc: 'Streaming voice activity detection & multi-speaker turn labeling.' },
+  { step: '03', title: 'Real-Time STT', desc: 'Low-latency multimodal speech-to-text with seam deduplication.' },
+  { step: '04', title: 'Feature Extraction', desc: 'WPM pace, pause counts, MATTR vocabulary variety, filler frequency, & style baselines.' },
+  { step: '05', title: 'Integrity Risk Engine', desc: 'Synthesizes unattributed source quotes, style shifts, & session anomalies into timestamped alerts.' },
 ];
 
 const surfaces = [
-  { href: '/console', label: 'Console', note: 'Record a live answer', accent: 'text-cyan' },
-  { href: '/judge', label: 'Judge', note: 'Score against a rubric', accent: 'text-cyan' },
-  { href: '/review', label: 'Review', note: 'Integrity signals + evidence', accent: 'text-amber' },
-  { href: '/coach', label: 'Coach', note: 'Drills from the evaluation', accent: 'text-mint' },
-  { href: '/admin', label: 'Admin', note: 'Leaderboard, consensus, analytics', accent: 'text-white/70' },
+  { href: '/console', label: 'Practice Console', note: 'Live mic capture & real-time telemetry', accent: 'text-cyan' },
+  { href: '/judge', label: 'Adjudicator HUD', note: 'Rubric scoring & live round monitoring', accent: 'text-cyan' },
+  { href: '/review', label: 'Case Review', note: 'Multi-signal integrity evidence & audit graph', accent: 'text-amber' },
+  { href: '/coach', label: 'Coach Engine', note: 'Adaptive speech & rebuttal drills', accent: 'text-mint' },
+  { href: '/admin', label: 'Tournament Admin', note: 'Leaderboard, consensus spread, & analytics', accent: 'text-white/70' },
 ];
 ---
 
-<Base title="ShadowADJ — speech practice & reflection">
-  <section class="relative mx-auto max-w-5xl px-4 pt-16 pb-10 sm:pt-24">
+<Base title="ShadowADJ — Real-Time AI Assistance Monitoring for Competitive Debate">
+  <section class="relative mx-auto max-w-5xl px-4 pt-16 pb-12 sm:pt-24">
     <div
       aria-hidden
       class="pointer-events-none absolute -top-24 left-[10%] h-80 w-[46rem] rounded-full bg-gradient-to-br from-cyan/20 via-mint/10 to-transparent blur-3xl"
@@ -34,47 +42,72 @@ const surfaces = [
     </div>
 
     <div class="relative">
-      <p class="text-[11px] font-medium uppercase tracking-[0.24em] text-cyan/80">
-        Real-time speech reflection
-      </p>
-      <h1 class="text-gradient mt-4 max-w-3xl text-balance text-4xl font-bold leading-[1.05] sm:text-6xl">
-        A mirror for how you speak — not a judge of who you are.
+      <div class="inline-flex items-center gap-2 rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">
+        <span class="h-2 w-2 rounded-full bg-cyan animate-pulse"></span>
+        ShadowADJ v0.2 · Live Debate Assistance Monitoring
+      </div>
+      
+      <h1 class="text-gradient mt-6 max-w-4xl text-balance text-4xl font-bold leading-[1.05] sm:text-6xl">
+        Real-Time AI Assistance Monitoring for Competitive Debate
       </h1>
-      <p class="mt-6 max-w-2xl text-[15px] leading-relaxed text-white/60 sm:text-base">
-        ShadowADJ listens to a live answer and surfaces what a good coach notices: pace, pauses,
-        filler words, vocabulary variety, how long you take before you start. Built for debate
-        practice, interview prep and speech coaching.
+      
+      <p class="mt-6 max-w-3xl text-[15px] leading-relaxed text-white/70 sm:text-lg">
+        ShadowADJ runs quietly in the background during live debate rounds, analyzing speech for signals that may indicate undisclosed AI assistance. It gives adjudicators timestamped evidence while keeping human judges firmly in control.
       </p>
 
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="/console" class="btn btn-primary">Open the console →</a>
-        <a href="/about" class="btn">Why it works this way</a>
+      <div class="mt-8 flex flex-wrap gap-4">
+        <a href="/judge" class="btn btn-primary text-sm px-5 py-2.5">
+          ▶ Open Adjudicator HUD & Simulator
+        </a>
+        <a href="/console" class="btn text-sm px-5 py-2.5">
+          🎙️ Open Practice Console
+        </a>
+        <a href="/about" class="btn text-sm px-5 py-2.5">
+          📘 Product Specification
+        </a>
       </div>
     </div>
 
+    {/* Pillars */}
     <div class="relative mt-16 grid gap-4 sm:grid-cols-3">
       {
         pillars.map((p) => (
-          <div class="glass p-5 transition duration-200 ease-pop hover:-translate-y-0.5 hover:border-white/20">
-            <h3 class="font-semibold">{p.title}</h3>
-            <p class="mt-2 text-sm leading-relaxed text-white/55">{p.body}</p>
+          <div class="glass p-6 transition duration-200 ease-pop hover:-translate-y-0.5 hover:border-white/20">
+            <h3 class="font-semibold text-white">{p.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-white/60">{p.body}</p>
           </div>
         ))
       }
     </div>
 
+    {/* Architecture Pipeline */}
+    <div class="relative mt-16 glass p-6 sm:p-8">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan">Architecture Pipeline</h2>
+      <h3 class="mt-1 text-xl font-bold text-white">How ShadowADJ Processes Live Debates</h3>
+      <div class="mt-6 grid gap-4 sm:grid-cols-5">
+        {pipelineSteps.map((step) => (
+          <div class="rounded-xl border border-white/10 bg-black/40 p-4">
+            <span class="font-mono text-xs font-bold text-cyan/70">{step.step}</span>
+            <h4 class="mt-1 text-sm font-semibold text-white">{step.title}</h4>
+            <p class="mt-1.5 text-xs text-white/50 leading-relaxed">{step.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Core Application Surfaces */}
     <div class="relative mt-14">
-      <p class="metric-label">The pipeline</p>
-      <div class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+      <p class="metric-label text-cyan">Application Modules</p>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {
           surfaces.map((s) => (
             <a
               href={s.href}
-              class="glass group flex flex-col gap-1 p-4 transition duration-200 ease-pop hover:-translate-y-0.5 hover:border-white/20"
+              class="glass group flex flex-col gap-1.5 p-5 transition duration-200 ease-pop hover:-translate-y-0.5 hover:border-cyan/40"
             >
               <span class={`text-sm font-semibold ${s.accent}`}>{s.label}</span>
-              <span class="text-[12px] leading-snug text-white/45">{s.note}</span>
-              <span class="mt-1 text-[11px] text-white/25 transition group-hover:text-white/45">Open →</span>
+              <span class="text-[12px] leading-snug text-white/50">{s.note}</span>
+              <span class="mt-2 text-[11px] font-medium text-cyan/60 group-hover:text-cyan">Open Module →</span>
             </a>
           ))
         }

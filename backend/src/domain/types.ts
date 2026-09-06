@@ -82,7 +82,7 @@ export interface Session extends Entity {
   expectSpeakers: number; // 1 = single speaker; >1 enables best-effort diarization
 }
 
-export type TranscriptSource = 'gemini' | 'browser';
+export type TranscriptSource = 'gemini' | 'browser' | 'server' | 'groq';
 
 export interface TranscriptSegment extends Entity {
   sessionId: Id;

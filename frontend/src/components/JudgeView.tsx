@@ -139,16 +139,63 @@ export default function JudgeView() {
     }
   }
 
+  async function startSimulation(scenario: 'clean' | 'elevated') {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/sessions/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario }),
+      });
+      if (!res.ok) throw new Error('Failed to start live simulation');
+      const data = await res.json();
+      window.location.href = `/judge?session=${encodeURIComponent(data.id)}`;
+    } catch (e: any) {
+      setError(e.message);
+      setBusy(false);
+    }
+  }
+
   if (!sessionId && !evalIdParam) {
     return (
-      <ViewLauncher
-        kind="judge"
-        accent="cyan"
-        eyebrow="Rubric-driven evaluation"
-        title="Score a session against its rubric."
-        blurb="The AI judge scores every criterion with quoted evidence, a confidence level and reasoning — a recommendation a human can adjust and finalise. Pick a session to begin."
-        extraParams={[{ name: 'evaluation', label: 'evaluation', hint: 'open a saved evaluation directly' }]}
-      />
+      <div>
+        <ViewLauncher
+          kind="judge"
+          accent="cyan"
+          eyebrow="Rubric-driven evaluation & Real-Time Monitoring"
+          title="Score a session or monitor a live debate round."
+          blurb="The AI judge scores every criterion with quoted evidence, a confidence level and reasoning. You can score an existing session or launch a live simulated debate round below."
+          extraParams={[{ name: 'evaluation', label: 'evaluation', hint: 'open a saved evaluation directly' }]}
+        />
+        <div className="mx-auto max-w-5xl px-4 pb-12">
+          <div className="glass p-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-cyan">
+              Live Debate Round Simulator
+            </h2>
+            <p className="mt-1 text-sm text-white/60 leading-relaxed">
+              Experience ShadowADJ's real-time assistance monitoring live without needing a microphone.
+              Simulate a debate round and observe how live telemetry, speaking rate, and non-disruptive risk signals stream in real time.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => startSimulation('elevated')}
+              >
+                {busy ? 'Launching…' : '▶ Launch Live Round (Elevated Risk Signal)'}
+              </button>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() => startSimulation('clean')}
+              >
+                {busy ? 'Launching…' : '▶ Launch Live Round (Clean Standard)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 

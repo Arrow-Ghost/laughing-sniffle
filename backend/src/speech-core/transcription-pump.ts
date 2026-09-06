@@ -41,11 +41,18 @@ export function dedupeJoin(acc: string, next: string): string {
   const maxK = Math.min(12, a.length, b.length);
   let best = 0;
   for (let k = maxK; k >= 1; k -= 1) {
+    let mismatches = 0;
     let ok = true;
     for (let i = 0; i < k; i += 1) {
-      if (norm(a[a.length - k + i] ?? '') !== norm(b[i] ?? '')) {
-        ok = false;
-        break;
+      const wA = norm(a[a.length - k + i] ?? '');
+      const wB = norm(b[i] ?? '');
+      if (wA !== wB) {
+        if (k >= 3 && mismatches === 0 && (wA.startsWith(wB) || wB.startsWith(wA) || levenshteinDist(wA, wB) <= 1)) {
+          mismatches += 1;
+        } else {
+          ok = false;
+          break;
+        }
       }
     }
     if (ok && (k >= 2 || norm(b[0] ?? '').length >= 3)) {
@@ -54,6 +61,26 @@ export function dedupeJoin(acc: string, next: string): string {
     }
   }
   return [...a, ...b.slice(best)].join(' ');
+}
+
+function levenshteinDist(s1: string, s2: string): number {
+  if (s1 === s2) return 0;
+  if (!s1) return s2.length;
+  if (!s2) return s1.length;
+  if (Math.abs(s1.length - s2.length) > 2) return 99;
+  let prev: number[] = Array.from({ length: s2.length + 1 }, (_, i) => i);
+  for (let i = 0; i < s1.length; i += 1) {
+    const curr: number[] = [i + 1];
+    for (let j = 0; j < s2.length; j += 1) {
+      const cJ = curr[j] ?? 0;
+      const pJ1 = prev[j + 1] ?? 0;
+      const pJ = prev[j] ?? 0;
+      const cost = s1[i] === s2[j] ? 0 : 1;
+      curr.push(Math.min(cJ + 1, pJ1 + 1, pJ + cost));
+    }
+    prev = curr;
+  }
+  return prev[s2.length] ?? 99;
 }
 
 function dominantLang(utterances: Array<{ text: string; lang: string }>): string | undefined {
@@ -91,7 +118,7 @@ export class TranscriptionPump {
     this.opts = opts;
     this.sr = sampleRate;
     this.bytesPerS = sampleRate * 2;
-    this.minChunk = this.bytesPerS * 6;
+    this.minChunk = this.bytesPerS * 3; // Reduced from 6s to 3s for lower streaming latency
     this.maxChunk = this.bytesPerS * 12;
     this.overlapBytes = Math.floor(this.bytesPerS * 0.8);
   }
@@ -101,6 +128,15 @@ export class TranscriptionPump {
     this.buf.push(int16);
     this.bytes += int16.length;
     void this.run(false);
+  }
+
+  /** Triggered on speech pause detected by VAD. Sends buffered speech immediately if >= 1.5s. */
+  triggerPauseFlush(): void {
+    if (!this.active || this.inFlight) return;
+    // Allow flushing if we have at least 1.5 seconds of audio accumulated during a speech pause
+    if (this.bytes >= Math.floor(this.bytesPerS * 1.5)) {
+      void this.run(true);
+    }
   }
 
   /** Transcribe whatever is still buffered — used on session end. */
@@ -119,7 +155,7 @@ export class TranscriptionPump {
   private async run(force: boolean): Promise<void> {
     if (!this.active || this.inFlight) return;
     if (!force && this.bytes < this.minChunk) return;
-    if (force && this.bytes < this.bytesPerS) return; // < 1s left
+    if (force && this.bytes < Math.floor(this.bytesPerS * 1.2)) return; // Require at least 1.2s on forced/pause run
     this.inFlight = true;
 
     let take = 0;
@@ -171,3 +207,4 @@ export class TranscriptionPump {
     }
   }
 }
+

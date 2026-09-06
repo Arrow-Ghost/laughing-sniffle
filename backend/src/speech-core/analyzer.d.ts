@@ -32,7 +32,7 @@ export interface AnalyzerSnapshot {
 }
 
 export class SessionAnalyzer {
-  constructor(opts?: { sampleRate?: number });
+  constructor(opts?: { sampleRate?: number; onPause?: () => void });
   now(): number;
   setTranscriptSource(src: string): void;
   pushAudio(input: { samples: Float32Array; at?: number }): void;

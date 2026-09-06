@@ -69,7 +69,10 @@ export class SpeechCore extends EventEmitter<SpeechEvents> {
     this.sessionId = sessionId;
     this.sr = opts.sampleRate ?? 16_000;
     this.source = opts.transcriptSource;
-    this.analyzer = new SessionAnalyzer({ sampleRate: this.sr });
+    this.analyzer = new SessionAnalyzer({
+      sampleRate: this.sr,
+      onPause: () => this.pump?.triggerPauseFlush(),
+    });
     this.analyzer.setTranscriptSource(this.source);
 
     if (this.source === 'server' && opts.ai?.enabled()) {

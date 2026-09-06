@@ -11,17 +11,25 @@ export interface CaptureHandle {
   audioCtx: AudioContext;
 }
 
-/** Downsample a Float32 block from `inRate` to 16 kHz with linear interpolation. */
+/** Downsample a Float32 block from `inRate` to 16 kHz with anti-aliased box filtering. */
 function downsample(block: Float32Array, inRate: number): Float32Array {
   if (inRate === TARGET_RATE) return block;
   const ratio = inRate / TARGET_RATE;
   const outLen = Math.floor(block.length / ratio);
   const out = new Float32Array(outLen);
+  const filterSize = Math.max(1, Math.floor(ratio));
+
   for (let i = 0; i < outLen; i += 1) {
-    const pos = i * ratio;
-    const lo = Math.floor(pos);
-    const hi = Math.min(lo + 1, block.length - 1);
-    out[i] = block[lo] + (block[hi] - block[lo]) * (pos - lo);
+    const center = i * ratio;
+    let sum = 0;
+    let count = 0;
+    const start = Math.max(0, Math.floor(center - filterSize / 2));
+    const end = Math.min(block.length, Math.ceil(center + filterSize / 2));
+    for (let j = start; j < end; j += 1) {
+      sum += block[j]!;
+      count += 1;
+    }
+    out[i] = count > 0 ? sum / count : block[Math.floor(center)] || 0;
   }
   return out;
 }
@@ -42,7 +50,7 @@ export async function startCapture(opts: {
   onClose?: () => void;
 }): Promise<CaptureHandle> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
   });
 
   const wsBase = API_BASE.replace(/^http/, 'ws');

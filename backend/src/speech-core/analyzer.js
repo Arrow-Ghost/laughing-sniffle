@@ -37,8 +37,9 @@ const MIN_FILLER_SPEAKING_S = 8;
  * estimate anywhere in this class.
  */
 export class SessionAnalyzer {
-  constructor({ sampleRate = 16_000 } = {}) {
+  constructor({ sampleRate = 16_000, onPause } = {}) {
     this.sampleRate = sampleRate;
+    this.onPause = onPause;
     this.audioMs = 0;
 
     this._vad = createVad();
@@ -103,6 +104,10 @@ export class SessionAnalyzer {
       while (this._speech.length && this._speech[0].end < cutoff) this._speech.shift();
     } else {
       const dur = seg.end - seg.start;
+      // Trigger pause callback for dynamic low-latency chunking whenever speech finishes
+      if (dur >= 400 && this._speech.length > 0) {
+        this.onPause?.();
+      }
       // A pause is silence *between* spoken portions. The leading silence before
       // the first word is not a pause (that gap is answer latency instead), so
       // require at least one closed speech segment first. Collapse pauses that

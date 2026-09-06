@@ -301,6 +301,23 @@ app.post(
   }),
 );
 
+app.post(
+  '/api/sessions/simulate',
+  wrap(async (req, res) => {
+    const scenario = (req.body?.scenario === 'elevated' ? 'elevated' : 'clean') as 'clean' | 'elevated';
+    const rt = await sessions.simulateDebateRound({ scenario });
+    res.status(201).json({
+      id: rt.entity.id,
+      mode: rt.entity.mode,
+      label: rt.entity.label,
+      consent: rt.entity.consent,
+      eventId: rt.entity.eventId,
+      scenario,
+      wsUrl: `/ws?sessionId=${rt.entity.id}`,
+    });
+  }),
+);
+
 app.get(
   '/api/sessions',
   wrap((req, res) => {

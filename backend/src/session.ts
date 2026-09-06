@@ -8,7 +8,7 @@ import { WebSocket } from 'ws';
 import { SpeechCore, type TranscriptSourceMode } from './speech-core/index.ts';
 import type { AIGateway } from './ai/AIGateway.ts';
 import type { StorageProvider } from './storage/StorageProvider.ts';
-import { createSession, createTimelineEvent, createTranscriptSegment, ValidationError } from './domain/entities.ts';
+import { createEvent, createRound, createSession, createTimelineEvent, createTranscriptSegment, ValidationError } from './domain/entities.ts';
 import { computeArtifactHashes } from './integrity/session-integrity.ts';
 import type { Id, Session, TimelineEventType, TimelineSeverity } from './domain/types.ts';
 import { HttpError } from './errors.ts';
@@ -385,6 +385,99 @@ export class SessionManager {
 
   auditTrail(id: Id) {
     return this.storage.listAuditBySession(id);
+  }
+
+  /** Run a live step-by-step simulated debate round for live demonstration & adjudication. */
+  async simulateDebateRound(opts: { scenario?: 'clean' | 'elevated' } = {}) {
+    const isElevated = opts.scenario === 'elevated';
+    const evs = this.storage.listEvents();
+    let ev = evs[0];
+    if (!ev) {
+      const newEv = createEvent({ name: 'National Debate Championship 2026', type: 'debate' });
+      this.storage.createEvent(newEv);
+      ev = newEv;
+    }
+    const activeEv = ev!;
+    const rts = this.storage.listRoundsByEvent(activeEv.id);
+    let r1 = rts[0];
+    if (!r1) {
+      const newR1 = createRound({ eventId: activeEv.id, index: 1, name: 'Grand Final Round' });
+      this.storage.createRound(newR1);
+      r1 = newR1;
+    }
+    const activeR1 = r1!;
+
+    const rt = this.create({
+      mode: 'debate-practice',
+      label: `Live Simulated Round — ${isElevated ? 'Elevated Signal Test' : 'Standard Round'}`,
+      consent: { speakerAcknowledged: true, secondPartyAcknowledged: true },
+      eventId: activeEv.id,
+      roundId: activeR1.id,
+      transcriptSource: 'server',
+      expectSpeakers: 2,
+    });
+
+    const script = [
+      {
+        speaker: 'Speaker A (Affirmative)',
+        text: 'Good evening Mr. Chairman, esteemed judges, and members of the gallery. Today we stand firmly in favor of the motion.',
+        delayMs: 500,
+      },
+      {
+        speaker: 'Speaker A (Affirmative)',
+        text: 'First, infrastructure investment yields a three-fold economic multiplier over a ten-year horizon.',
+        delayMs: 2500,
+      },
+      {
+        speaker: 'Speaker A (Affirmative)',
+        text: 'To signpost our key points: one, immediate job creation; two, sustainable energy resilience; and three, long-term fiscal solvency.',
+        delayMs: 3000,
+      },
+      {
+        speaker: 'Speaker B (Negative)',
+        text: 'Mr. Chairman, the affirmative proposal presents an optimistic vision, but it ignores crucial implementation bottlenecks.',
+        delayMs: 4000,
+      },
+      isElevated
+        ? {
+            speaker: 'Speaker B (Negative)',
+            text: 'According to the OECD 2025 fiscal report, debt service obligations currently constrain local municipal budgets by over forty percent. If firms expect the cap to be loosened under political pressure, the price signal disappears and the whole mechanism unwinds.',
+            delayMs: 3500,
+          }
+        : {
+            speaker: 'Speaker B (Negative)',
+            text: 'We believe targeted tax credits offer a more flexible and fiscally responsible alternative for regional development.',
+            delayMs: 3500,
+          },
+      {
+        speaker: 'Speaker A (Affirmative)',
+        text: 'In conclusion, we cannot afford inaction. We urge a clear vote in favor of the affirmative motion. Thank you.',
+        delayMs: 3000,
+      },
+    ];
+
+    // Asynchronous background runner streaming PCM audio simulation + speech events
+    (async () => {
+      for (const step of script) {
+        if (rt.entity.status === 'ended') break;
+        await new Promise((r) => setTimeout(r, step.delayMs));
+        // Synthesize 1 second of non-zero audio samples to advance VAD & audioMs
+        const pcm16 = Buffer.alloc(32000);
+        for (let i = 0; i < 16000; i += 1) {
+          const val = Math.sin(i * 0.1) * 4000;
+          pcm16.writeInt16LE(Math.floor(val), i * 2);
+        }
+        rt.core.ingestAudio(pcm16);
+        rt.core.emit('transcript', {
+          text: step.text,
+          isFinal: true,
+          source: 'server',
+          speaker: step.speaker,
+        });
+      }
+    })().catch((err) => console.error('[session] simulation step error', err));
+
+    return rt;
   }
 
   private sweep(): void {

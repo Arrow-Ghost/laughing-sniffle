@@ -188,7 +188,7 @@ export function createSession(input: {
 
 export function createTranscriptSegment(input: {
   sessionId: Id;
-  source: TranscriptSource;
+  source?: TranscriptSource;
   t0: number;
   t1: number;
   text: string;

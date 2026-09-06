@@ -21,7 +21,7 @@ const groqTextModels = list(process.env.GROQ_MODEL, 'groq/compound', 'openai/gpt
 
 const transcribeModels = provider === 'groq'
   ? groqTranscribeModels
-  : list(process.env.GEMINI_TRANSCRIBE_MODEL, 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite');
+  : list(process.env.GEMINI_TRANSCRIBE_MODEL, 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite');
 
 const textModels = provider === 'groq'
   ? groqTextModels
