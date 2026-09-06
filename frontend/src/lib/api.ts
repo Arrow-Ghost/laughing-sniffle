@@ -8,6 +8,8 @@ export interface CreatedSession {
   mode: SessionMode;
   label: string;
   consent: { speakerAcknowledged: boolean; secondPartyAcknowledged: boolean; acknowledgedAt: string };
+  languages?: string[];
+  expectSpeakers?: number;
   wsUrl: string;
 }
 
@@ -21,6 +23,8 @@ export async function createSession(body: {
   mode: SessionMode;
   label?: string;
   consent: { speakerAcknowledged: boolean; secondPartyAcknowledged: boolean };
+  languages?: string[];
+  expectSpeakers?: number;
 }): Promise<CreatedSession> {
   const r = await fetch(`${API_BASE}/api/sessions`, {
     method: 'POST',

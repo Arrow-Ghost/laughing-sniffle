@@ -24,6 +24,8 @@ interface Prefs {
   mode: SessionMode;
   label: string;
   transcriptSource: 'browser' | 'server';
+  languages: string;
+  expectSpeakers: number;
   metrics: Record<string, boolean>;
 }
 function defaultPrefs(): Prefs {
@@ -31,6 +33,8 @@ function defaultPrefs(): Prefs {
     mode: 'debate-practice',
     label: '',
     transcriptSource: 'server', // falls back to browser when no Gemini key
+    languages: '',
+    expectSpeakers: 1,
     metrics: Object.fromEntries(METRIC_KEYS.map((k) => [k, true])),
   };
 }
@@ -87,10 +91,16 @@ export default function Console() {
     setError(null);
     try {
       const useServer = prefs.transcriptSource === 'server' && health?.geminiEnabled;
+      const languages = prefs.languages
+        .split(/[,\s]+/)
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean);
       const s = await createSession({
         mode: prefs.mode,
         label: prefs.label || undefined,
         consent: { speakerAcknowledged: consent.speaker, secondPartyAcknowledged: consent.second },
+        languages: languages.length ? languages : undefined,
+        expectSpeakers: prefs.expectSpeakers > 1 ? prefs.expectSpeakers : undefined,
       });
       store.reset();
       store.set({ status: 'connecting', sessionId: s.id, label: s.label });
@@ -254,6 +264,33 @@ export default function Console() {
             className="mt-1 w-full rounded-xl border border-stroke bg-black/30 px-3 py-2 text-sm outline-none focus:border-cyan/50"
           />
         </label>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <label className="block">
+            <span className="metric-label">Languages spoken (optional)</span>
+            <input
+              value={prefs.languages}
+              onChange={(e) => setPrefs((p) => ({ ...p, languages: e.target.value }))}
+              placeholder="e.g. en, hi — leave blank for English"
+              className="mt-1 w-full rounded-xl border border-stroke bg-black/30 px-3 py-2 text-sm outline-none focus:border-cyan/50"
+            />
+          </label>
+          <label className="block">
+            <span className="metric-label">Speakers</span>
+            <input
+              type="number"
+              min={1}
+              max={8}
+              value={prefs.expectSpeakers}
+              onChange={(e) => setPrefs((p) => ({ ...p, expectSpeakers: Math.max(1, Number(e.target.value) || 1) }))}
+              className="mt-1 w-20 rounded-xl border border-stroke bg-black/30 px-3 py-2 text-sm outline-none focus:border-cyan/50"
+            />
+          </label>
+        </div>
+        <p className="mt-1 text-xs text-white/40">
+          Naming a non-English language (or more than one speaker) switches transcription to
+          multilingual mode — the original is kept, with an English gloss available for judges.
+        </p>
 
         <div className="mt-5">
           <span className="metric-label">Transcription</span>
