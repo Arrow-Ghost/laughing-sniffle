@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import LanguageLine from './LanguageLine';
+import ViewLauncher from './ViewLauncher';
 import {
   clock,
   finalizeEvaluation,
@@ -130,11 +131,14 @@ export default function JudgeView() {
 
   if (!sessionId && !evalIdParam) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-sm text-white/55">
-        Open this view as <code className="text-white/80">/judge?session=&lt;id&gt;</code> or{' '}
-        <code className="text-white/80">/judge?evaluation=&lt;id&gt;</code>. Session ids come from the console
-        (Network tab) or <code className="text-white/80">GET /api/sessions</code>.
-      </div>
+      <ViewLauncher
+        kind="judge"
+        accent="cyan"
+        eyebrow="Rubric-driven evaluation"
+        title="Score a session against its rubric."
+        blurb="The AI judge scores every criterion with quoted evidence, a confidence level and reasoning — a recommendation a human can adjust and finalise. Pick a session to begin."
+        extraParams={[{ name: 'evaluation', label: 'evaluation', hint: 'open a saved evaluation directly' }]}
+      />
     );
   }
 

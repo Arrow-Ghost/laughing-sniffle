@@ -14,6 +14,41 @@ body {
   min-height: 100%;
 }
 
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(0, 212, 255, 0.28);
+}
+
+/* tighter, calmer scrollbars in the dark theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 @layer components {
   .glass {
     @apply rounded-2xl border border-stroke bg-panel backdrop-blur-xl;
@@ -23,12 +58,21 @@ body {
     @apply text-[11px] uppercase tracking-[0.14em] text-white/45;
   }
   .btn {
-    @apply inline-flex items-center gap-2 rounded-xl border border-stroke px-4 py-2
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-stroke px-4 py-2
       text-sm font-medium transition-all duration-150 ease-pop
-      hover:border-white/30 hover:bg-white/5 active:scale-[0.98];
+      hover:border-white/30 hover:bg-white/5 active:scale-[0.98]
+      disabled:pointer-events-none disabled:opacity-40;
   }
   .btn-primary {
     @apply border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/20;
+    box-shadow: 0 10px 40px -14px rgba(0, 212, 255, 0.55);
+  }
+  /* accent gradient headline */
+  .text-gradient {
+    @apply bg-gradient-to-br from-white via-white to-white/55 bg-clip-text text-transparent;
+  }
+  .text-balance {
+    text-wrap: balance;
   }
 }
 

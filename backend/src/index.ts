@@ -291,6 +291,26 @@ app.post(
   }),
 );
 
+app.get(
+  '/api/sessions',
+  wrap((req, res) => {
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+    const eventId = typeof req.query.eventId === 'string' ? req.query.eventId : undefined;
+    const rows = storage.listSessions({ limit, eventId }).map((s) => ({
+      id: s.id,
+      label: s.label,
+      mode: s.mode,
+      status: s.status,
+      createdAt: s.createdAt,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      eventId: s.eventId,
+      participantId: s.participantId,
+      languages: s.languages,
+    }));
+    res.json(rows);
+  }),
+);
 app.get('/api/sessions/:id/export', wrap((req, res) => res.json(sessions.export(rid(req)))));
 app.get('/api/sessions/:id/audit', wrap((req, res) => res.json(sessions.auditTrail(rid(req)))));
 app.get('/api/sessions/:id/timeline', wrap((req, res) => res.json(storage.listTimeline(rid(req)))));

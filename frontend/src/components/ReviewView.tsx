@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import LanguageLine from './LanguageLine';
+import ViewLauncher from './ViewLauncher';
 import {
   clock,
   DECISION_COPY,
@@ -408,11 +409,17 @@ export default function ReviewView() {
 
   if (!sessionId && !eventId && !caseId) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-sm text-white/55">
-        Open as <code className="text-white/80">/review?session=&lt;id&gt;</code>,{' '}
-        <code className="text-white/80">/review?event=&lt;id&gt;</code>, or{' '}
-        <code className="text-white/80">/review?case=&lt;id&gt;</code>.
-      </div>
+      <ViewLauncher
+        kind="review"
+        accent="amber"
+        eyebrow="Evidence, not verdicts"
+        title="Review a session for integrity signals."
+        blurb="Risk levels with quoted evidence and a recommended action — never a claim that anything is proven. A named human records every decision. Pick a session to review."
+        extraParams={[
+          { name: 'event', label: 'event', hint: 'all cases in an event' },
+          { name: 'case', label: 'case', hint: 'open one case' },
+        ]}
+      />
     );
   }
 

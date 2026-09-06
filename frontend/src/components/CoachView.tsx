@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ViewLauncher from './ViewLauncher';
 import {
   buildPlan,
   clock,
@@ -175,10 +176,14 @@ export default function CoachView() {
 
   if (!sessionId && !planIdParam) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-sm text-white/55">
-        Open as <code className="text-white/80">/coach?session=&lt;id&gt;</code> or{' '}
-        <code className="text-white/80">/coach?plan=&lt;id&gt;</code>. Coaching is built from the session’s judge evaluation.
-      </div>
+      <ViewLauncher
+        kind="coach"
+        accent="mint"
+        eyebrow="Practice, grounded in the judge"
+        title="Turn an evaluation into a training plan."
+        blurb="Coaching quotes the judge’s exact weaknesses, maps each to a drill, and runs an AI opponent with memory. Pick a judged session to build a plan."
+        extraParams={[{ name: 'plan', label: 'plan', hint: 'reopen a saved plan' }]}
+      />
     );
   }
 

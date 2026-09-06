@@ -23,32 +23,45 @@ const nav = [
     <meta name="description" content="Consent-first, real-time speech practice & reflection console." />
   </head>
   <body class="min-h-screen font-sans antialiased">
-    <header class="sticky top-0 z-40 border-b border-stroke bg-ink/70 backdrop-blur-xl">
+    <header
+      class="sticky top-0 z-40 border-b border-stroke bg-ink/60 backdrop-blur-xl
+        after:absolute after:inset-x-0 after:-bottom-px after:h-px
+        after:bg-gradient-to-r after:from-transparent after:via-cyan/25 after:to-transparent"
+    >
       <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-          <span class="inline-block h-3 w-3 rounded-full bg-gradient-to-br from-cyan to-mint"></span>
+        <a href="/" class="group flex items-center gap-2.5 font-semibold tracking-tight">
+          <span
+            class="inline-block h-3 w-3 rounded-full bg-gradient-to-br from-cyan to-mint
+              shadow-[0_0_14px_rgba(0,212,255,0.6)] transition group-hover:shadow-[0_0_20px_rgba(0,255,156,0.7)]"
+          ></span>
           ShadowADJ
         </a>
-        <nav class="flex gap-1 text-sm">
+        <nav class="flex flex-wrap gap-0.5 text-sm">
           {
-            nav.map((n) => (
-              <a
-                href={n.href}
-                class={`rounded-lg px-3 py-1.5 transition ${
-                  path === n.href ? 'bg-white/10 text-white' : 'text-white/55 hover:text-white/90'
-                }`}
-              >
-                {n.label}
-              </a>
-            ))
+            nav.map((n) => {
+              const active = path === n.href || (n.href !== '/' && path.startsWith(n.href));
+              return (
+                <a
+                  href={n.href}
+                  aria-current={active ? 'page' : undefined}
+                  class={`relative rounded-lg px-3 py-1.5 transition-colors ${
+                    active
+                      ? 'text-white after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-gradient-to-r after:from-cyan after:to-mint'
+                      : 'text-white/50 hover:text-white/90'
+                  }`}
+                >
+                  {n.label}
+                </a>
+              );
+            })
           }
         </nav>
       </div>
     </header>
-    <main>
+    <main class="min-h-[calc(100vh-9rem)]">
       <slot />
     </main>
-    <footer class="mx-auto max-w-6xl px-4 py-10 text-xs text-white/30">
+    <footer class="mx-auto mt-8 max-w-6xl border-t border-stroke px-4 py-8 text-xs leading-relaxed text-white/30">
       ShadowADJ is a reflection tool, not an adjudicator. It reports how speech sounds and never
       estimates authorship or produces a verdict about a person.
     </footer>
