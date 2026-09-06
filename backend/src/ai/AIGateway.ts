@@ -28,7 +28,10 @@ import { gradeDrillParts, GRADE_DRILL_REPAIR, type GradeDrillInput } from './pro
 import type { Confidence, EvidenceRef } from '../domain/types.ts';
 
 export interface AIGatewayConfig {
-  apiKey: string;
+  provider?: 'gemini' | 'groq';
+  apiKey?: string;
+  groqApiKey?: string;
+  geminiApiKey?: string;
   models: {
     transcribe: string[];
     coach: string[];
@@ -36,7 +39,7 @@ export interface AIGatewayConfig {
     similarity: string[];
     summarize: string[];
   };
-  /** Test seam — replaces the Gemini SDK call. Not used in production. */
+  /** Test seam — replaces the LLM call. Not used in production. */
   _call?: (model: string, parts: Part[]) => Promise<{ text: string; inputTokens?: number; outputTokens?: number }>;
 }
 
@@ -76,6 +79,9 @@ interface RawResult {
 }
 
 export class AIGateway {
+  private readonly provider: 'gemini' | 'groq';
+  private readonly groqApiKey: string;
+  private readonly geminiApiKey: string;
   private readonly client: GoogleGenerativeAI | null;
   private readonly models: AIGatewayConfig['models'];
   private readonly call: AIGatewayConfig['_call'] | null;
@@ -84,12 +90,15 @@ export class AIGateway {
 
   constructor(cfg: AIGatewayConfig) {
     this.call = cfg._call ?? null;
-    this.client = this.call ? null : cfg.apiKey ? new GoogleGenerativeAI(cfg.apiKey) : null;
+    this.groqApiKey = (cfg.groqApiKey || (cfg.provider === 'groq' ? cfg.apiKey : '') || '').trim();
+    this.geminiApiKey = (cfg.geminiApiKey || (cfg.provider !== 'groq' ? cfg.apiKey : '') || '').trim();
+    this.provider = cfg.provider || (this.groqApiKey ? 'groq' : 'gemini');
+    this.client = this.call ? null : (this.provider === 'gemini' && this.geminiApiKey ? new GoogleGenerativeAI(this.geminiApiKey) : null);
     this.models = cfg.models;
   }
 
   enabled(): boolean {
-    return this.client !== null || this.call !== null;
+    return this.call !== null || (this.provider === 'groq' ? this.groqApiKey.length > 0 : this.geminiApiKey.length > 0);
   }
 
   // --- transcription (text out) -------------------------------------------
@@ -256,9 +265,8 @@ export class AIGateway {
     return { calls, inputTokens: inTok, outputTokens: outTok, estCostUsd: Number(est.toFixed(5)) };
   }
 
-  // --- internals -------------------------------------------------------
   private async raw(op: string, parts: Part[], models: string[]): Promise<RawResult> {
-    if (!this.client && !this.call) throw new Error('AIGateway: no API key configured');
+    if (!this.enabled()) throw new Error('AIGateway: no API key configured');
     let lastErr: unknown;
     for (const model of models) {
       const t0 = Date.now();
@@ -271,6 +279,11 @@ export class AIGateway {
           text = r.text.trim();
           inTok = r.inputTokens ?? 0;
           outTok = r.outputTokens ?? 0;
+        } else if (this.provider === 'groq') {
+          const r = await this.rawGroq(op, model, parts);
+          text = r.text.trim();
+          inTok = r.inputTokens;
+          outTok = r.outputTokens;
         } else {
           const res = await this.client!.getGenerativeModel({ model }).generateContent(parts);
           const usage = res.response.usageMetadata;
@@ -287,6 +300,139 @@ export class AIGateway {
       }
     }
     throw lastErr instanceof Error ? lastErr : new Error('AIGateway: all models failed');
+  }
+
+  private async rawGroq(
+    op: string,
+    model: string,
+    parts: Part[],
+  ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+    const inline = parts.find((p) => 'inlineData' in p && p.inlineData);
+
+    if (inline && 'inlineData' in inline && inline.inlineData) {
+      const pcmWavBase64 = inline.inlineData.data;
+      const wavBuffer = Buffer.from(pcmWavBase64, 'base64');
+
+      if (op === 'transcribe-structured') {
+        const formData = new FormData();
+        formData.append('file', new Blob([wavBuffer], { type: 'audio/wav' }), 'speech.wav');
+        formData.append('model', model);
+        formData.append('response_format', 'verbose_json');
+
+        const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.groqApiKey}` },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`[${res.status}] Groq transcribe error: ${errText}`);
+        }
+
+        const audioData = (await res.json()) as { text?: string; language?: string };
+        const rawTranscript = (audioData.text ?? '').trim();
+        const detectedLang = audioData.language ?? 'en';
+
+        if (!rawTranscript || TRANSCRIBE_EMPTY_RE.test(rawTranscript)) {
+          return { text: '{ "utterances": [] }', inputTokens: 0, outputTokens: 0 };
+        }
+
+        const promptPart = parts.find((p) => 'text' in p && p.text);
+        const promptText = promptPart && 'text' in promptPart ? promptPart.text : '';
+        const textModel = this.models.coach[0] || 'groq/compound';
+
+        const chatRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.groqApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: textModel,
+            messages: [
+              {
+                role: 'system',
+                content: 'You format verbatim speech transcripts into JSON utterances. ' + promptText,
+              },
+              {
+                role: 'user',
+                content: `Detected language: ${detectedLang}\nVerbatim Transcript:\n${rawTranscript}`,
+              },
+            ],
+            temperature: 0.1,
+            max_completion_tokens: 1000,
+            response_format: { type: 'json_object' },
+          }),
+        });
+
+        if (!chatRes.ok) {
+          const simpleJson = JSON.stringify({
+            utterances: [{ text: rawTranscript, lang: detectedLang, speaker: 'Speaker A' }],
+          });
+          return { text: simpleJson, inputTokens: 0, outputTokens: 0 };
+        }
+
+        const chatData = (await chatRes.json()) as any;
+        const jsonText = chatData.choices?.[0]?.message?.content ?? '';
+        const inTok = chatData.usage?.prompt_tokens ?? 0;
+        const outTok = chatData.usage?.completion_tokens ?? 0;
+        return { text: jsonText, inputTokens: inTok, outputTokens: outTok };
+      } else {
+        const formData = new FormData();
+        formData.append('file', new Blob([wavBuffer], { type: 'audio/wav' }), 'speech.wav');
+        formData.append('model', model);
+        formData.append('response_format', 'json');
+
+        const textPrompt = parts.map((p) => ('text' in p ? p.text : '')).filter(Boolean).join(' ');
+        if (textPrompt) {
+          formData.append('prompt', textPrompt.slice(0, 800));
+        }
+
+        const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${this.groqApiKey}` },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`[${res.status}] Groq transcribe error: ${errText}`);
+        }
+
+        const data = (await res.json()) as { text?: string };
+        return { text: data.text ?? '', inputTokens: 0, outputTokens: 0 };
+      }
+    }
+
+    const textContent = parts.map((p) => ('text' in p ? p.text : '')).filter(Boolean).join('\n\n');
+
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: 'user', content: textContent }],
+        temperature: 0.2,
+        max_completion_tokens: 1000,
+        response_format: textContent.toLowerCase().includes('json') ? { type: 'json_object' } : undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`[${res.status}] Groq chat error (${model}): ${errText}`);
+    }
+
+    const data = (await res.json()) as any;
+    const text = data.choices?.[0]?.message?.content ?? '';
+    const inTok = data.usage?.prompt_tokens ?? 0;
+    const outTok = data.usage?.completion_tokens ?? 0;
+
+    return { text, inputTokens: inTok, outputTokens: outTok };
   }
 
   private async callJson<T>(args: {

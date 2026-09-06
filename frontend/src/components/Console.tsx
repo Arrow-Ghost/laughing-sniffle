@@ -51,6 +51,7 @@ export default function Console() {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [health, setHealth] = useState<{
     geminiEnabled: boolean;
+    provider?: string;
     model?: string;
     defaultTranscription?: 'server' | 'browser';
   } | null>(null);
@@ -120,7 +121,7 @@ export default function Console() {
           store.set({
             notices: [
               ...useConsole.getState().notices,
-              'This browser has no speech recognition. Set a GEMINI_API_KEY for server transcription, or use Chrome.',
+              'This browser has no speech recognition. Set an API key (GROQ_API_KEY or GEMINI_API_KEY) for server transcription, or use Chrome.',
             ],
           });
         }
@@ -300,7 +301,7 @@ export default function Console() {
               disabled={!serverAvailable}
               onClick={() => serverAvailable && setPrefs((p) => ({ ...p, transcriptSource: 'server' }))}
             >
-              Gemini {health?.model ? `(${health.model})` : ''}{!serverAvailable && ' — no key set'}
+              Server AI {health?.provider ? `(${health.provider} - ${health.model || ''})` : health?.model ? `(${health.model})` : ''}{!serverAvailable && ' — no key set'}
               {serverAvailable && ' · recommended'}
             </Toggle>
             <Toggle active={prefs.transcriptSource === 'browser'} onClick={() => setPrefs((p) => ({ ...p, transcriptSource: 'browser' }))}>
@@ -308,7 +309,7 @@ export default function Console() {
             </Toggle>
           </div>
           <p className="mt-1.5 text-xs text-white/40">
-            Gemini transcription runs on the backend and works in any browser. Web Speech is
+            Server AI transcription runs on the backend and works in any browser. Web Speech is
             Chrome-only and silently does nothing elsewhere (e.g. Opera, Firefox).
           </p>
         </div>
@@ -392,7 +393,7 @@ export default function Console() {
           <p className="mt-0.5 text-xs text-white/40">
             {MODES.find((m) => m.id === prefs.mode)?.title} · transcript:{' '}
             {snap?.transcript.source === 'server'
-              ? `Gemini${health?.model ? ` (${health.model})` : ''}`
+              ? `${health?.provider ? health.provider.toUpperCase() : 'Server'}${health?.model ? ` (${health.model})` : ''}`
               : snap?.transcript.source === 'browser'
                 ? 'browser Web Speech'
                 : '…'}

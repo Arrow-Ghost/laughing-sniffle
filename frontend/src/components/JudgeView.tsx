@@ -35,6 +35,8 @@ function useQuery(key: string) {
   }, [key]);
 }
 
+import { API_BASE } from '@/lib/api';
+
 export default function JudgeView() {
   const sessionId = useQuery('session');
   const evalIdParam = useQuery('evaluation');
@@ -42,8 +44,16 @@ export default function JudgeView() {
   const [evaluation, setEvaluation] = useState<JudgeEvaluation | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [rubrics, setRubrics] = useState<{ id: string; name: string }[]>([]);
+  const [allSessions, setAllSessions] = useState<Array<{ id: string; label: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/sessions?limit=24`)
+      .then((r) => r.json())
+      .then((rows) => setAllSessions(rows))
+      .catch(() => {});
+  }, []);
 
   async function load() {
     setError(null);
@@ -170,7 +180,26 @@ export default function JudgeView() {
         <>
           <header className="glass mb-4 flex flex-wrap items-center justify-between gap-3 p-5">
             <div>
-              <div className="metric-label">{evaluation.rubricName}</div>
+              <div className="flex items-center gap-3">
+                <span className="metric-label">{evaluation.rubricName}</span>
+                {allSessions.length > 0 && (
+                  <select
+                    value={evaluation.sessionId}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        window.location.href = `/judge?session=${encodeURIComponent(e.target.value)}`;
+                      }
+                    }}
+                    className="rounded-lg border border-stroke bg-black/40 px-2.5 py-1 text-xs text-white outline-none focus:border-cyan/50"
+                  >
+                    {allSessions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label || 'Untitled session'} ({s.id})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="mt-1 flex items-baseline gap-3">
                 <span className="font-mono text-3xl font-semibold">
                   {evaluation.overallScore.toFixed(1)}
@@ -192,7 +221,7 @@ export default function JudgeView() {
               </div>
               <LanguageLine sessionId={evaluation.sessionId} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {evaluation.status === 'draft' ? (
                 <button className="btn btn-primary" disabled={busy} onClick={doFinalize}>
                   Finalise

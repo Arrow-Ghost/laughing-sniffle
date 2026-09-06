@@ -129,3 +129,12 @@ test('cost summary aggregates tokens across calls', async () => {
   assert.equal(c.inputTokens, 100);
   assert.equal(c.outputTokens, 50);
 });
+
+test('groq provider initializes and reports enabled', () => {
+  const ai = new AIGateway({
+    provider: 'groq',
+    groqApiKey: 'gsk_mock_key_for_testing',
+    models: MODELS,
+  });
+  assert.equal(ai.enabled(), true);
+});

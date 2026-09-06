@@ -112,17 +112,35 @@ export default function ViewLauncher({
         <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/55">{blurb}</p>
       </div>
 
-      {/* open by id */}
+      {/* open by id or dropdown */}
       <div className="glass mt-9 p-5">
-        <label className="metric-label">Open a session</label>
+        <label className="metric-label">Select a session</label>
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            value={manual}
-            onChange={(e) => setManual(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && go(manual)}
-            placeholder="Paste a session ID…"
-            className="flex-1 rounded-xl border border-stroke bg-black/25 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-white/30 focus:bg-black/40"
-          />
+          {sessions && sessions.length > 0 ? (
+            <select
+              value={manual}
+              onChange={(e) => {
+                setManual(e.target.value);
+                if (e.target.value) go(e.target.value);
+              }}
+              className="flex-1 rounded-xl border border-stroke bg-black/40 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan/50"
+            >
+              <option value="">-- Select a session from the list --</option>
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label || 'Untitled session'} — ({s.id})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && go(manual)}
+              placeholder="Paste a session ID…"
+              className="flex-1 rounded-xl border border-stroke bg-black/25 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-white/30 focus:bg-black/40"
+            />
+          )}
           <button className={`btn ${manual.trim() ? 'btn-primary' : ''}`} disabled={!manual.trim()} onClick={() => go(manual)}>
             Open →
           </button>
@@ -162,9 +180,23 @@ export default function ViewLauncher({
         )}
 
         {!err && sessions?.length === 0 && (
-          <div className="glass p-6 text-sm text-white/50">
-            No sessions recorded yet. Open the <a href="/console" className={a.text}>console</a> and run one — it’ll show up
-            here.
+          <div className="glass flex flex-col items-start gap-3 p-6 text-sm text-white/70">
+            <p>No sessions recorded yet. Open the <a href="/console" className={a.text}>console</a> to run a live session, or generate sample debate sessions to test this view.</p>
+            <button
+              className="btn btn-primary text-xs"
+              onClick={async () => {
+                setErr(null);
+                try {
+                  await fetch(`${API_BASE}/api/seed`, { method: 'POST' });
+                  const rows = await fetch(`${API_BASE}/api/sessions?limit=24`).then((r) => r.json());
+                  setSessions(rows);
+                } catch (e: any) {
+                  setErr(e.message);
+                }
+              }}
+            >
+              Generate Demo Sessions &amp; Evaluations
+            </button>
           </div>
         )}
 

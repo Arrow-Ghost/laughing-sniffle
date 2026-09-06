@@ -30,9 +30,10 @@ import { buildLeaderboard } from './competition/leaderboard.ts';
 import { eventAnalytics } from './competition/analytics.ts';
 import { buildReplayBundle } from './competition/replay.ts';
 import { JobQueue } from './jobs/queue.ts';
+import { seedDemoData } from './seed.ts';
 
 const storage = new SqliteStorage(config.databaseUrl);
-const ai = new AIGateway({ apiKey: config.gemini.apiKey, models: config.gemini.models });
+const ai = new AIGateway(config.ai);
 const sessions = new SessionManager(storage, ai);
 const judge = new JudgeEngine(storage, ai);
 
@@ -43,6 +44,9 @@ if (config.searchProvider !== 'mock') {
 }
 const integrity = new IntegrityEngine(storage, new MockSourceSearchProvider(), ai);
 const coach = new CoachEngine(storage, ai);
+
+// Auto-seed demo data on startup if database is fresh
+void seedDemoData({ storage, ai, sessions, judge, integrity, coach });
 
 /* --- Phase 7: job queue (spec §107). Long ops run here, off the request thread. --- */
 const queue = new JobQueue();
@@ -105,11 +109,17 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     geminiEnabled: ai.enabled(),
-    model: config.gemini.models.transcribe[0],
+    provider: config.ai.provider,
+    model: config.ai.models.transcribe[0],
     defaultTranscription: serverTranscription ? 'server' : 'browser',
     transcriptionModes: ai.enabled() ? ['server', 'browser'] : ['browser'],
   });
 });
+
+app.post('/api/seed', wrap(async (_req, res) => {
+  await seedDemoData({ storage, ai, sessions, judge, integrity, coach });
+  res.json({ ok: true });
+}));
 
 app.get('/api/ai/cost', (_req, res) => res.json(ai.costSummary()));
 
@@ -330,7 +340,7 @@ app.post('/api/sessions/:id/end', wrap(async (req, res) => res.json(await sessio
 app.post(
   '/api/sessions/:id/evaluations',
   wrap(async (req, res) => {
-    if (!ai.enabled()) throw new HttpError(400, 'Judging needs GEMINI_API_KEY');
+    if (!ai.enabled()) throw new HttpError(400, 'Judging needs an AI API key (GROQ_API_KEY or GEMINI_API_KEY)');
     const sessionId = rid(req);
     const rubric = resolveRubric(sessionId, req.body?.rubricId);
     const evaluation = await judge.evaluate({ sessionId, rubric, judgeId: req.body?.judgeId ?? null });
@@ -467,7 +477,7 @@ app.get('/api/sessions/:id/artifacts', wrap((req, res) => {
 app.post(
   '/api/sessions/:id/coaching',
   wrap(async (req, res) => {
-    if (!ai.enabled()) throw new HttpError(400, 'Coaching notes need GEMINI_API_KEY');
+    if (!ai.enabled()) throw new HttpError(400, 'Coaching notes need an AI API key (GROQ_API_KEY or GEMINI_API_KEY)');
     const rt = sessions.getRuntime(rid(req));
     const snap = rt.core.snapshot();
     if (snap.transcript.wordCount < 30) throw new HttpError(422, 'Not enough transcript yet for useful notes');
@@ -492,7 +502,7 @@ app.post(
 app.post(
   '/api/sessions/:id/coach/plan',
   wrap(async (req, res) => {
-    if (!ai.enabled()) throw new HttpError(400, 'Coaching needs GEMINI_API_KEY');
+    if (!ai.enabled()) throw new HttpError(400, 'Coaching needs an AI API key (GROQ_API_KEY or GEMINI_API_KEY)');
     res.status(201).json(await coach.plan({ sessionId: rid(req), evaluationId: req.body?.evaluationId, persona: req.body?.persona }));
   }),
 );

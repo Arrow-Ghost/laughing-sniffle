@@ -200,7 +200,7 @@ export function createTranscriptSegment(input: {
     id: id(),
     createdAt: now(),
     sessionId: str('sessionId', input.sessionId, { max: 128 }),
-    source: oneOf('source', input.source, ['gemini', 'browser']),
+    source: oneOf('source', input.source ?? 'gemini', ['gemini', 'browser', 'server', 'groq']),
     t0: num('t0', input.t0),
     t1: num('t1', input.t1),
     text: str('text', input.text, { min: 0, max: 20000 }),

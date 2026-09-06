@@ -12,8 +12,39 @@ function list(envValue: string | undefined, ...fallbacks: string[]): string[] {
 
 const transcription = (process.env.TRANSCRIPTION ?? 'auto').toLowerCase();
 
-const transcribeModels = list(process.env.GEMINI_TRANSCRIBE_MODEL, 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite');
-const textModels = list(process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash');
+const groqKey = (process.env.GROQ_API_KEY ?? '').trim();
+const geminiKey = (process.env.GEMINI_API_KEY ?? '').trim();
+const provider = (process.env.AI_PROVIDER || (groqKey ? 'groq' : 'gemini')).toLowerCase() as 'groq' | 'gemini';
+
+const groqTranscribeModels = list(process.env.GROQ_TRANSCRIBE_MODEL, 'whisper-large-v3-turbo', 'whisper-large-v3');
+const groqTextModels = list(process.env.GROQ_MODEL, 'groq/compound', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b');
+
+const transcribeModels = provider === 'groq'
+  ? groqTranscribeModels
+  : list(process.env.GEMINI_TRANSCRIBE_MODEL, 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite');
+
+const textModels = provider === 'groq'
+  ? groqTextModels
+  : list(process.env.GEMINI_MODEL, 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash');
+
+const aiConfig = {
+  provider,
+  groqApiKey: groqKey,
+  geminiApiKey: geminiKey,
+  apiKey: provider === 'groq' ? groqKey : geminiKey,
+  models: {
+    transcribe: transcribeModels,
+    coach: textModels,
+    judge: list(provider === 'groq' ? process.env.GROQ_JUDGE_MODEL : process.env.GEMINI_JUDGE_MODEL, ...textModels),
+    similarity: list(provider === 'groq' ? process.env.GROQ_SIMILARITY_MODEL : process.env.GEMINI_SIMILARITY_MODEL, provider === 'groq' ? 'llama-3.1-8b-instant' : 'gemini-3.5-flash-lite'),
+    summarize: list(provider === 'groq' ? process.env.GROQ_SUMMARIZE_MODEL : process.env.GEMINI_SUMMARIZE_MODEL, ...textModels),
+  },
+  transcribeModels,
+  textModels,
+  get enabled(): boolean {
+    return (this.provider === 'groq' ? this.groqApiKey : this.geminiApiKey).length > 0;
+  },
+};
 
 export const config = {
   port: Number(process.env.PORT) || 8787,
@@ -34,30 +65,17 @@ export const config = {
   // Phase 7: when set, REST auth + RBAC are enforced. Unset => dev mode: every
   // request runs as a synthetic admin so the reflection console keeps working.
   authSecret: process.env.AUTH_SECRET || '',
-  gemini: {
-    apiKey: process.env.GEMINI_API_KEY || '',
-    // Model routing table (spec §82). Head is primary; rest are 404/503 fallbacks.
-    models: {
-      transcribe: transcribeModels,
-      coach: textModels,
-      judge: list(process.env.GEMINI_JUDGE_MODEL, ...textModels),
-      similarity: list(process.env.GEMINI_SIMILARITY_MODEL, 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'),
-      summarize: list(process.env.GEMINI_SUMMARIZE_MODEL, ...textModels),
-    },
-    // kept for anything still reading the old names
-    transcribeModels,
-    textModels,
-    get enabled(): boolean {
-      return this.apiKey.length > 0;
-    },
+  ai: aiConfig,
+  get gemini() {
+    return this.ai;
   },
 };
 
-export const serverTranscription = config.transcription === 'auto' && config.gemini.enabled;
+export const serverTranscription = config.transcription === 'auto' && config.ai.enabled;
 
 console.log(
   serverTranscription
-    ? `[shadowadj] transcription: server via ${config.gemini.models.transcribe[0]} · coach ${config.gemini.models.coach[0]}`
+    ? `[shadowadj] transcription: server via ${config.ai.provider} (${config.ai.models.transcribe[0]}) · coach ${config.ai.models.coach[0]}`
     : '[shadowadj] transcription: browser Web Speech API (no key, or TRANSCRIPTION=browser)',
 );
 console.log(`[shadowadj] storage: ${config.databaseUrl}`);
