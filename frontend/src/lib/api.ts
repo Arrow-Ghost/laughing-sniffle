@@ -46,3 +46,11 @@ export async function fetchExport(id: string): Promise<any> {
   if (!r.ok) throw new Error('export failed');
   return r.json();
 }
+
+export async function fetchIntegrityAnalysis(id: string): Promise<any> {
+  const r = await fetch(`${API_BASE}/api/sessions/${id}/integrity`, { method: 'POST' });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'integrity analysis unavailable');
+  return r.json();
+}
+
+

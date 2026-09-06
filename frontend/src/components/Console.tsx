@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createSession, fetchCoaching, getHealth, type SessionMode } from '@/lib/api';
+import { createSession, fetchCoaching, fetchIntegrityAnalysis, getHealth, type SessionMode } from '@/lib/api';
 import { startCapture, type CaptureHandle } from '@/lib/audio';
 import { browserSpeechSupported, startBrowserSpeech } from '@/lib/speech';
 import { useConsole } from '@/lib/store';
@@ -60,6 +60,11 @@ export default function Console() {
   const [error, setError] = useState<string | null>(null);
   const [coaching, setCoaching] = useState<{ notes: string; loading: boolean; error: string | null }>({
     notes: '',
+    loading: false,
+    error: null,
+  });
+  const [integrity, setIntegrity] = useState<{ data: any | null; loading: boolean; error: string | null }>({
+    data: null,
     loading: false,
     error: null,
   });
@@ -226,6 +231,17 @@ export default function Console() {
       setCoaching({ notes: r.notes, loading: false, error: null });
     } catch (e: any) {
       setCoaching({ notes: '', loading: false, error: e.message });
+    }
+  }
+
+  async function getIntegrity() {
+    if (!store.sessionId) return;
+    setIntegrity({ data: null, loading: true, error: null });
+    try {
+      const r = await fetchIntegrityAnalysis(store.sessionId);
+      setIntegrity({ data: r, loading: false, error: null });
+    } catch (e: any) {
+      setIntegrity({ data: null, loading: false, error: e.message });
     }
   }
 
@@ -512,6 +528,92 @@ export default function Console() {
           )}
         </div>
       </div>
+
+      {step === 'ended' && (
+        <div className="glass mt-4 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white/80">AI &amp; Plagiarism Integrity Check</h3>
+              <p className="text-xs text-white/40">Analyze transcript for plagiarism, external source matching, and AI delivery patterns.</p>
+            </div>
+            {!integrity.data && !integrity.loading && (
+              <button className="btn btn-primary text-xs" onClick={getIntegrity}>
+                Run AI &amp; Plagiarism Check
+              </button>
+            )}
+          </div>
+
+          {integrity.loading && <p className="mt-3 text-xs text-cyan">Scanning web corpus &amp; analyzing speech delivery patterns…</p>}
+          {integrity.error && <Banner tone="rose">{integrity.error}</Banner>}
+
+          {integrity.data && (
+            <div className="mt-4 space-y-3">
+              {integrity.data.case ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-white/60">Risk Level:</span>
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                        integrity.data.case.riskLevel === 'LOW'
+                          ? 'border-mint/40 bg-mint/10 text-mint'
+                          : integrity.data.case.riskLevel === 'MODERATE'
+                            ? 'border-amber/40 bg-amber/10 text-amber'
+                            : 'border-rose/40 bg-rose/10 text-rose'
+                      }`}
+                    >
+                      {integrity.data.case.riskLevel} RISK
+                    </span>
+                    <span className="text-xs text-white/40">
+                      Confidence: <strong className="text-white/80">{integrity.data.case.confidence}</strong>
+                    </span>
+                  </div>
+
+                  {integrity.data.case.signals && integrity.data.case.signals.length > 0 && (
+                    <div className="mt-2">
+                      <div className="metric-label">Detected Signals</div>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {integrity.data.case.signals.map((sig: any, idx: number) => (
+                          <div key={idx} className="rounded-lg border border-white/10 bg-black/25 px-2.5 py-1 text-xs text-white/80">
+                            <span className="font-mono text-cyan">{sig.key}</span> ({Math.round((sig.strength || 0) * 100)}% match)
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {integrity.data.case.sourceMatches && integrity.data.case.sourceMatches.length > 0 ? (
+                    <div className="mt-3">
+                      <div className="metric-label">Matched Sources &amp; Plagiarism</div>
+                      <div className="mt-1 space-y-1.5">
+                        {integrity.data.case.sourceMatches.map((m: any, idx: number) => (
+                          <div key={idx} className="rounded-lg border border-white/5 bg-black/20 p-2 text-xs">
+                            <div className="flex justify-between font-medium text-white/80">
+                              <span>{m.title || m.domain || 'Source match'}</span>
+                              <span className="font-mono text-cyan">
+                                {Math.round(m.exactSimilarity * 100)}% similarity ({m.classification})
+                              </span>
+                            </div>
+                            <p className="mt-1 text-white/60 italic">“{m.matchedText}”</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-mint/80">✓ No external source plagiarism detected in this transcript.</p>
+                  )}
+                </>
+              ) : integrity.data.analytics ? (
+                <div className="text-xs text-white/70">
+                  <p className="text-mint">✓ Event policy allows AI assistance — recorded as disclosure analytics.</p>
+                  <p className="mt-1 text-white/40">Source matches: {integrity.data.analytics.sourceMatchCount}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-mint">✓ Transcript checked — clear.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
